@@ -1,0 +1,98 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: maestro
+  name: maestro-request-manager-data
+  labels:
+    app: maestro-request-manager
+    compontent: server
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources: 
+    requests:
+      storage: 100Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: maestro
+  name: maestro-request-manager
+  labels:
+    app: maestro-request-manager
+    component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maestro-request-manager
+      component: server
+  template:
+    metadata:
+      labels:
+        app: maestro-request-manager
+        component: server
+    spec:
+      containers:
+      - name: maestro-request-manager
+        image: harbor.coretech.chst.io/automation/maestro-request-manager:0.0.10
+        ports:
+        - containerPort: 3030
+        volumeMounts:
+        - mountPath: /home/node/data
+          name: maestro-request-manager-data
+      securityContext:
+        fsGroup: 1000
+      volumes:
+      - name: maestro-request-manager-data
+        persistentVolumeClaim:
+          claimName: maestro-request-manager-data
+      restartPolicy: Always
+      imagePullSecrets:
+      - name: azureregcred       
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: maestro
+  name: maestro-request-manager
+  labels:
+    app: maestro-request-manager
+    component: server
+spec:
+  ports:
+  - name: maestro-request-manager
+    port: 3030
+    targetPort: 3030
+  selector:
+    app: maestro-request-manager
+    component: server
+  type: ClusterIP
+
+# ---
+# apiVersion: extensions/v1beta1
+# kind: Ingress
+# metadata:
+#   namespace: maestro
+#   name: maestro-request-manager
+#   labels:
+#     app: maestro-request-manager
+#     component: server
+#   annotations:
+#     kubernetes.io/ingress.class: kong
+#     cert-manager.io/cluster-issuer: letsencrypt-prod
+# spec:
+#   tls:
+#     - hosts:
+#       - maestro-request-manager.coretech.chst.io
+#       secretName: maestro-request-manager-tls
+#   rules:
+#   - host: maestro-request-manager.coretech.chst.io
+#     http:
+#       paths:
+#       - path: /
+#         backend:
+#           serviceName: maestro-request-manager
+#           servicePort: 3030
